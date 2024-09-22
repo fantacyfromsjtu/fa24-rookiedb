@@ -160,12 +160,58 @@ class LeafNode extends BPlusNode {
         return this;
     }
 
+    private int findInsertId(DataBox key) {
+        int n = keys.size();
+        for (int i = 0; i < n; i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                return i;
+            }
+        }
+        return n;
+    }
+
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        if (keys.contains(key)) {
+            //重复键值，异常
+            throw new BPlusTreeException("Duplicate key");
+        }
+        int n = keys.size();
+        if (n < 2 * metadata.getOrder()) {
+            //没有overflow
+            keys.add(key);
+            rids.add(rid);
+            sync();
+            return Optional.empty();
+        } else {
+            //有overflow
+            int id = findInsertId(key);
+            keys.add(id, key);
+            rids.add(id, rid);
+            n++;
 
-        return Optional.empty();
+            int splitId = (n + 1) / 2;
+            DataBox splitKey = keys.get(splitId);
+            ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(splitId, n));
+            ArrayList<RecordId> rightRids = new ArrayList<>(rids.subList(splitId, n));
+
+            //删除左边的冗余
+            keys.subList(splitId, keys.size()).clear();
+            rids.subList(splitId, rids.size()).clear();
+            sync();
+
+            //新建右边的节点
+            LeafNode newRight = new LeafNode(metadata, bufferManager, rightKeys, rightRids, rightSibling, treeContext);
+            newRight.sync();
+
+            //更新rightSibling
+            rightSibling = Optional.of(newRight.page.getPageNum());
+            sync();
+
+            return Optional.of(new Pair<>(splitKey, newRight.page.getPageNum()));
+        }
     }
 
     // See BPlusNode.bulkLoad.

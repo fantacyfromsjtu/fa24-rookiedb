@@ -86,12 +86,12 @@ class InnerNode extends BPlusNode {
         for (int i = 0; i < n; i++) {
             if (key.compareTo(keys.get(i)) < 0) {
                 long child = children.get(i);
-                return BPlusNode.fromBytes(metadata,bufferManager,treeContext,child).get(key);
+                return BPlusNode.fromBytes(metadata, bufferManager, treeContext, child).get(key);
             }
         }
         // 返回最右边那个节点
         long child = children.get(n);
-        return BPlusNode.fromBytes(metadata,bufferManager,treeContext,child).get(key);
+        return BPlusNode.fromBytes(metadata, bufferManager, treeContext, child).get(key);
     }
 
     // See BPlusNode.getLeftmostLeaf.
@@ -100,15 +100,63 @@ class InnerNode extends BPlusNode {
         assert (children.size() > 0);
         // TODO(proj2): implement
         long leftMost = children.get(0);
-        return BPlusNode.fromBytes(metadata,bufferManager,treeContext,leftMost).getLeftmostLeaf();
+        return BPlusNode.fromBytes(metadata, bufferManager, treeContext, leftMost).getLeftmostLeaf();
+    }
+
+    private int findInsertId(DataBox key) {
+        int n = keys.size();
+        for (int i = 0; i < n; i++) {
+            if (key.compareTo(keys.get(i)) < 0) {
+                return i;
+            }
+        }
+        return n;
     }
 
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
         // TODO(proj2): implement
+        LeafNode insertNode = get(key);
+        Optional<Pair<DataBox, Long>> res = insertNode.put(key, rid);
+        if (res.equals(Optional.empty())) {
+            //孩子没有overflow
+            return Optional.empty();
+        } else {
+            //孩子overflow了
 
-        return Optional.empty();
+            DataBox splitKey = res.get().getFirst();
+            Long rightPage = res.get().getSecond();
+            int n = keys.size();
+            int id = findInsertId(key);
+            keys.add(id, splitKey);
+            children.add(id + 1, rightPage);
+            n = keys.size();
+            sync();
+            if (keys.size() <= 2 * metadata.getOrder()) {
+                //自身没有overflow
+                return Optional.empty();
+            } else {
+                //自身overflow
+                int order = metadata.getOrder();
+                DataBox split = keys.get(order);
+
+                //分裂出右边节点
+                ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(order + 1, n));
+                ArrayList<Long> rightChilds = new ArrayList<>(children.subList(order + 1,n));
+
+                //删除左边节点冗余
+                keys.subList(order, keys.size()).clear();
+                children.subList(order, children.size()).clear();
+                sync();
+
+                //新建右边节点
+                InnerNode newRight = new InnerNode(metadata, bufferManager,rightKeys,rightChilds,treeContext);
+                newRight.sync();
+
+                return Optional.of(new Pair<>(splitKey, newRight.page.getPageNum()));
+            }
+        }
     }
 
     // See BPlusNode.bulkLoad.
