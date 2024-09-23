@@ -189,7 +189,7 @@ class LeafNode extends BPlusNode {
             return Optional.empty();
         } else {
             //有overflow
-            int splitId = (n + 1) / 2;
+            int splitId = n / 2;
             DataBox splitKey = keys.get(splitId);
             ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(splitId, n));
             ArrayList<RecordId> rightRids = new ArrayList<>(rids.subList(splitId, n));

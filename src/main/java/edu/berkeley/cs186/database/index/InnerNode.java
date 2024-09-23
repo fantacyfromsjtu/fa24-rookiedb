@@ -116,47 +116,54 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // TODO(proj2): implement
+        // 插入到正确的叶子节点
         LeafNode insertNode = get(key);
         Optional<Pair<DataBox, Long>> res = insertNode.put(key, rid);
-        if (res.equals(Optional.empty())) {
-            //孩子没有overflow
+
+        // 如果子节点没有溢出，直接返回
+        if (!res.isPresent()) {
             return Optional.empty();
-        } else {
-            //孩子overflow了
-            DataBox splitKey = res.get().getFirst();
-            Long rightPage = res.get().getSecond();
-            int n = keys.size();
-            int id = findInsertId(key);
-            keys.add(id, splitKey);
-            children.add(id + 1, rightPage);
-            n = keys.size();
-            //sync();
-            if (keys.size() <= 2 * metadata.getOrder()) {
-                //自身没有overflow
-                return Optional.empty();
-            } else {
-                //自身overflow
-                int order = metadata.getOrder();
-                DataBox split = keys.get(order);
-
-                //分裂出右边节点
-                ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(order + 1, n));
-                ArrayList<Long> rightChilds = new ArrayList<>(children.subList(order + 1,n));
-
-                //删除左边节点冗余
-                keys.subList(order, keys.size()).clear();
-                children.subList(order, children.size()).clear();
-                sync();
-
-                //新建右边节点
-                InnerNode newRight = new InnerNode(metadata, bufferManager,rightKeys,rightChilds,treeContext);
-                newRight.sync();
-
-                return Optional.of(new Pair<>(splitKey, newRight.page.getPageNum()));
-            }
         }
+
+        // 子节点溢出，获取上升的键和新分裂的右节点的页面号
+        DataBox splitKey = res.get().getFirst();
+        Long rightPage = res.get().getSecond();
+
+        // 找到插入 splitKey 的位置
+        int id = findInsertId(splitKey);
+
+        // 在 keys 和 children 中插入 splitKey 和新分裂出来的右节点
+        keys.add(id, splitKey);
+        children.add(id + 1, rightPage);
+
+        // 检查是否溢出
+        if (keys.size() <= 2 * metadata.getOrder()) {
+            // 没有溢出，返回空
+            sync();
+            return Optional.empty();
+        }
+
+        // 处理自身溢出，分裂当前节点
+        int order = metadata.getOrder();
+        DataBox midKey = keys.get(order);  // 中间键，将上升到父节点
+
+        // 分裂出右边节点，包含右半部分的 keys 和 children
+        List<DataBox> rightKeys = new ArrayList<>(keys.subList(order + 1, keys.size()));
+        List<Long> rightChildren = new ArrayList<>(children.subList(order + 1, children.size()));
+
+        // 删除左边节点的冗余部分，保留左半部分的 keys 和 children
+        keys.subList(order, keys.size()).clear();
+        children.subList(order + 1, children.size()).clear();
+        sync();  // 同步左边节点
+
+        // 新建右边节点
+        InnerNode newRight = new InnerNode(metadata, bufferManager, rightKeys, rightChildren, treeContext);
+        newRight.sync();  // 同步右边节点
+
+        // 返回分裂时上升的键和右边节点的页面号
+        return Optional.of(new Pair<>(midKey, newRight.getPage().getPageNum()));
     }
+
 
     // See BPlusNode.bulkLoad.
     @Override
@@ -173,7 +180,6 @@ class InnerNode extends BPlusNode {
         // TODO(proj2): implement
         LeafNode leaf = get(key);
         leaf.remove(key);
-
     }
 
     // Helpers /////////////////////////////////////////////////////////////////

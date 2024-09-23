@@ -260,9 +260,9 @@ public class BPlusTree {
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
 
-        if (!get(key).equals(Optional.empty())) {
-            throw new BPlusTreeException("Duplicate key");
-        }
+//        if (!get(key).equals(Optional.empty())) {
+//            throw new BPlusTreeException("Duplicate key");
+//        }
 
         Optional<Pair<DataBox, Long>> res = root.put(key, rid);
 
@@ -451,18 +451,39 @@ public class BPlusTree {
     // Iterator ////////////////////////////////////////////////////////////////
     private class BPlusTreeIterator implements Iterator<RecordId> {
         // TODO(proj2): Add whatever fields and constructors you want here.
+        LeafNode currentNode;
+        int curId;
+
+        public BPlusTreeIterator() {
+            currentNode = root.getLeftmostLeaf();
+            curId = 0;
+        }
 
         @Override
         public boolean hasNext() {
             // TODO(proj2): implement
 
-            return false;
+            return !currentNode.getRightSibling().equals(Optional.empty())
+                    && curId == currentNode.getRids().size();
         }
 
         @Override
         public RecordId next() {
             // TODO(proj2): implement
 
+            if (hasNext()) {
+
+                RecordId res = currentNode.getRids().get(curId);
+                if(curId == currentNode.getRids().size()) {
+                    curId = 0;
+                    currentNode = currentNode.getRightSibling().get();
+                    return res;
+                }
+                else {
+                    curId ++;
+                    return res;
+                }
+            }
             throw new NoSuchElementException();
         }
     }
