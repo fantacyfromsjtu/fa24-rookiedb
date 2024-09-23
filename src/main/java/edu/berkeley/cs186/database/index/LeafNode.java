@@ -179,19 +179,16 @@ class LeafNode extends BPlusNode {
             throw new BPlusTreeException("Duplicate key");
         }
         int n = keys.size();
-        if (n < 2 * metadata.getOrder()) {
+        int id = findInsertId(key);
+        keys.add(id, key);
+        rids.add(id, rid);
+        n++;
+        if (n <= 2 * metadata.getOrder()) {
             //没有overflow
-            keys.add(key);
-            rids.add(rid);
             sync();
             return Optional.empty();
         } else {
             //有overflow
-            int id = findInsertId(key);
-            keys.add(id, key);
-            rids.add(id, rid);
-            n++;
-
             int splitId = (n + 1) / 2;
             DataBox splitKey = keys.get(splitId);
             ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(splitId, n));
