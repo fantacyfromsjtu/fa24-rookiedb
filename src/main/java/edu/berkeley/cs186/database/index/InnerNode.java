@@ -124,7 +124,6 @@ class InnerNode extends BPlusNode {
             return Optional.empty();
         } else {
             //孩子overflow了
-
             DataBox splitKey = res.get().getFirst();
             Long rightPage = res.get().getSecond();
             int n = keys.size();
@@ -132,7 +131,7 @@ class InnerNode extends BPlusNode {
             keys.add(id, splitKey);
             children.add(id + 1, rightPage);
             n = keys.size();
-            sync();
+            //sync();
             if (keys.size() <= 2 * metadata.getOrder()) {
                 //自身没有overflow
                 return Optional.empty();
@@ -172,8 +171,9 @@ class InnerNode extends BPlusNode {
     @Override
     public void remove(DataBox key) {
         // TODO(proj2): implement
+        LeafNode leaf = get(key);
+        leaf.remove(key);
 
-        return;
     }
 
     // Helpers /////////////////////////////////////////////////////////////////
