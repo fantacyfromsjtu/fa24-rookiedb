@@ -116,9 +116,15 @@ class InnerNode extends BPlusNode {
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
-        // 插入到正确的叶子节点
-        LeafNode insertNode = get(key);
-        Optional<Pair<DataBox, Long>> res = insertNode.put(key, rid);
+//        // 插入到正确的叶子节点
+//        LeafNode insertNode = get(key);
+//        Optional<Pair<DataBox, Long>> res = insertNode.put(key, rid);
+
+        int childID = findInsertId(key);
+        BPlusNode childNode = BPlusNode.fromBytes(metadata, bufferManager, treeContext,children.get(childID));
+
+        // 递归地在子节点中插入
+        Optional<Pair<DataBox, Long>> res = childNode.put(key, rid);
 
         // 如果子节点没有溢出，直接返回
         if (!res.isPresent()) {

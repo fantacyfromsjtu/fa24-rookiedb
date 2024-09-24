@@ -439,6 +439,7 @@ public class TestBPlusTree {
                 for (int i = 0; i < keys.size(); ++i) {
                     tree.put(keys.get(i), rids.get(i));
                 }
+                //tree.toDotPDFFile("tree.pdf");
 
                 // Test get.
                 for (int i = 0; i < keys.size(); ++i) {
