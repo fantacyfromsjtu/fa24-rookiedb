@@ -205,7 +205,7 @@ public class BPlusTree {
 
         // TODO(proj2): Return a BPlusTreeIterator.
 
-        return Collections.emptyIterator();
+        return new BPlusTreeIterator(root.getLeftmostLeaf(), 0);
     }
 
     /**
@@ -238,7 +238,14 @@ public class BPlusTree {
 
         // TODO(proj2): Return a BPlusTreeIterator.
 
-        return Collections.emptyIterator();
+        LeafNode leaf = root.get(key);
+        int curID = 0;
+        for (; curID < leaf.getKeys().size(); curID++) {
+            if (leaf.getKeys().get(curID).compareTo(key) >= 0) {
+                break;
+            }
+        }
+        return new BPlusTreeIterator(leaf, curID);
     }
 
     /**
@@ -259,10 +266,6 @@ public class BPlusTree {
         // Note: You should NOT update the root variable directly.
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
-
-//        if (!get(key).equals(Optional.empty())) {
-//            throw new BPlusTreeException("Duplicate key");
-//        }
 
         Optional<Pair<DataBox, Long>> res = root.put(key, rid);
 
@@ -454,37 +457,39 @@ public class BPlusTree {
         LeafNode currentNode;
         int curId;
 
-        public BPlusTreeIterator() {
-            currentNode = root.getLeftmostLeaf();
-            curId = 0;
+        public BPlusTreeIterator(LeafNode cur, int id) {
+            currentNode = cur;
+            curId = id;
         }
 
         @Override
         public boolean hasNext() {
             // TODO(proj2): implement
-
-            return !currentNode.getRightSibling().equals(Optional.empty())
-                    && curId == currentNode.getRids().size();
+            if (curId < currentNode.getRids().size()) {
+                return true;
+            }
+            return !currentNode.getRightSibling().equals(Optional.empty());
         }
 
         @Override
         public RecordId next() {
-            // TODO(proj2): implement
-
-            if (hasNext()) {
-
-                RecordId res = currentNode.getRids().get(curId);
-                if(curId == currentNode.getRids().size()) {
-                    curId = 0;
-                    currentNode = currentNode.getRightSibling().get();
-                    return res;
-                }
-                else {
-                    curId ++;
-                    return res;
-                }
+            // 先检查是否有下一个元素
+            if (!hasNext()) {
+                throw new NoSuchElementException();
             }
-            throw new NoSuchElementException();
+
+            // 获取当前的RecordId
+            RecordId res = currentNode.getRids().get(curId);
+
+            // 如果当前节点的RecordId已经遍历完，切换到右兄弟节点
+            if (curId == currentNode.getRids().size() - 1 && !currentNode.getRightSibling().equals(Optional.empty())) {
+                curId = 0;  // 重置curId
+                currentNode = currentNode.getRightSibling().get();  // 切换到右兄弟节点
+            } else {
+                curId++;  // 继续遍历当前节点
+            }
+
+            return res;
         }
     }
 }

@@ -276,6 +276,9 @@ class LeafNode extends BPlusNode {
         }
 
         long pageNum = rightSibling.get();
+        if (pageNum == -1) {
+            return Optional.empty();
+        }
         return Optional.of(LeafNode.fromBytes(metadata, bufferManager, treeContext, pageNum));
     }
 
