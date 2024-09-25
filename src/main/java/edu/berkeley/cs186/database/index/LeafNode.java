@@ -170,6 +170,28 @@ class LeafNode extends BPlusNode {
         return n;
     }
 
+    private Optional<Pair<DataBox, Long>> splitLeaf(DataBox key, RecordId rid, int splitId) {
+        int n = keys.size();
+        //int splitId = n / 2;
+        DataBox splitKey = keys.get(splitId);
+        ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(splitId, n));
+        ArrayList<RecordId> rightRids = new ArrayList<>(rids.subList(splitId, n));
+
+        //删除左边的冗余
+        keys.subList(splitId, keys.size()).clear();
+        rids.subList(splitId, rids.size()).clear();
+        sync();
+
+        //新建右边的节点
+        LeafNode newRight = new LeafNode(metadata, bufferManager, rightKeys, rightRids, rightSibling, treeContext);
+        newRight.sync();
+
+        //更新rightSibling
+        rightSibling = Optional.of(newRight.page.getPageNum());
+        sync();
+        return Optional.of(new Pair<>(splitKey, newRight.page.getPageNum()));
+    }
+
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
@@ -190,24 +212,7 @@ class LeafNode extends BPlusNode {
         } else {
             //有overflow
             int splitId = n / 2;
-            DataBox splitKey = keys.get(splitId);
-            ArrayList<DataBox> rightKeys = new ArrayList<>(keys.subList(splitId, n));
-            ArrayList<RecordId> rightRids = new ArrayList<>(rids.subList(splitId, n));
-
-            //删除左边的冗余
-            keys.subList(splitId, keys.size()).clear();
-            rids.subList(splitId, rids.size()).clear();
-            sync();
-
-            //新建右边的节点
-            LeafNode newRight = new LeafNode(metadata, bufferManager, rightKeys, rightRids, rightSibling, treeContext);
-            newRight.sync();
-
-            //更新rightSibling
-            rightSibling = Optional.of(newRight.page.getPageNum());
-            sync();
-
-            return Optional.of(new Pair<>(splitKey, newRight.page.getPageNum()));
+            return splitLeaf(key, rid, splitId);
         }
     }
 
@@ -216,8 +221,27 @@ class LeafNode extends BPlusNode {
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
                                                   float fillFactor) {
         // TODO(proj2): implement
+        if (!data.hasNext()) {
+            return Optional.empty();
+        }
+        Pair<DataBox, RecordId> p = data.next();
+        DataBox key = p.getFirst();
+        RecordId rid = p.getSecond();
 
-        return Optional.empty();
+
+        keys.add(key);
+        rids.add(rid);
+        int n = keys.size();
+        double curFill = n / (metadata.getOrder() * 2.0);
+        if (curFill > fillFactor) {
+            //需要分裂
+            splitLeaf(key, rid, n - 1);
+            return bulkLoad(data,fillFactor);
+        } else {
+            //不需要分裂，直接返回
+            sync();
+            return bulkLoad(data,fillFactor);
+        }
     }
 
     // See BPlusNode.remove.
