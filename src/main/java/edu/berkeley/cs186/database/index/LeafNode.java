@@ -170,7 +170,7 @@ class LeafNode extends BPlusNode {
         return n;
     }
 
-    private Optional<Pair<DataBox, Long>> splitLeaf(DataBox key, RecordId rid, int splitId) {
+    private Optional<Pair<DataBox, Long>> splitLeaf(int splitId) {
         int n = keys.size();
         //int splitId = n / 2;
         DataBox splitKey = keys.get(splitId);
@@ -212,7 +212,7 @@ class LeafNode extends BPlusNode {
         } else {
             //有overflow
             int splitId = n / 2;
-            return splitLeaf(key, rid, splitId);
+            return splitLeaf(splitId);
         }
     }
 
@@ -235,12 +235,12 @@ class LeafNode extends BPlusNode {
         double curFill = n / (metadata.getOrder() * 2.0);
         if (curFill > fillFactor) {
             //需要分裂
-            splitLeaf(key, rid, n - 1);
-            return bulkLoad(data,fillFactor);
+            return splitLeaf(n - 1);
+            //return bulkLoad(data,fillFactor);
         } else {
             //不需要分裂，直接返回
             sync();
-            return bulkLoad(data,fillFactor);
+            return bulkLoad(data, fillFactor);
         }
     }
 

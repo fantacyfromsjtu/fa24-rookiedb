@@ -248,6 +248,18 @@ public class BPlusTree {
         return new BPlusTreeIterator(leaf, curID);
     }
 
+    private void splitRoot(DataBox splitKey, Long rightPage) {
+        //新建root
+        ArrayList<DataBox> newKeys = new ArrayList<>();
+        ArrayList<Long> newChildren = new ArrayList<>();
+        newKeys.add(splitKey);
+        newChildren.add(root.getPage().getPageNum());
+        newChildren.add(rightPage);
+
+        InnerNode newRoot = new InnerNode(metadata, bufferManager, newKeys, newChildren, lockContext);
+        updateRoot(newRoot);
+    }
+
     /**
      * Inserts a (key, rid) pair into a B+ tree. If the key already exists in
      * the B+ tree, then the pair is not inserted and an exception is raised.
@@ -277,16 +289,8 @@ public class BPlusTree {
         //root overflow，分裂root
         DataBox splitKey = res.get().getFirst();
         Long rightPage = res.get().getSecond();
-        //新建root
-        ArrayList<DataBox> newKeys = new ArrayList<>();
-        ArrayList<Long> newChildren = new ArrayList<>();
-        newKeys.add(splitKey);
-        newChildren.add(root.getPage().getPageNum());
-        newChildren.add(rightPage);
 
-        InnerNode newRoot = new InnerNode(metadata, bufferManager, newKeys, newChildren, lockContext);
-        updateRoot(newRoot);
-
+        splitRoot(splitKey, rightPage);
     }
 
     /**
@@ -317,7 +321,25 @@ public class BPlusTree {
         // Use the provided updateRoot() helper method to change
         // the tree's root if the old root splits.
 
-        return;
+        //检查是否是空树
+        if (!root.getLeftmostLeaf().getKeys().isEmpty()) {
+            throw new BPlusTreeException("The tree is not empty.");
+        }
+
+        //批量加载
+        while (data.hasNext()) {
+            Optional<Pair<DataBox, Long>> res = root.bulkLoad(data, fillFactor);
+
+            //root没有overflow
+            if (res.equals(Optional.empty())) {
+                continue;
+            } else {
+                DataBox splitKey = res.get().getFirst();
+                Long rightPage = res.get().getSecond();
+
+                splitRoot(splitKey, rightPage);
+            }
+        }
     }
 
     /**

@@ -113,6 +113,29 @@ class InnerNode extends BPlusNode {
         return n;
     }
 
+    private Optional<Pair<DataBox, Long>> splitInner(int splitId) {
+        // 处理自身溢出，分裂当前节点
+        int order = metadata.getOrder();
+        DataBox midKey = keys.get(order);  // 中间键，将上升到父节点
+
+        // 分裂出右边节点，包含右半部分的 keys 和 children
+        List<DataBox> rightKeys = new ArrayList<>(keys.subList(order + 1, keys.size()));
+        List<Long> rightChildren = new ArrayList<>(children.subList(order + 1, children.size()));
+
+        // 删除左边节点的冗余部分，保留左半部分的 keys 和 children
+        keys.subList(order, keys.size()).clear();
+        children.subList(order + 1, children.size()).clear();
+        sync();  // 同步左边节点
+
+        // 新建右边节点
+        InnerNode newRight = new InnerNode(metadata, bufferManager, rightKeys, rightChildren, treeContext);
+        newRight.sync();  // 同步右边节点
+
+        // 返回分裂时上升的键和右边节点的页面号
+        return Optional.of(new Pair<>(midKey, newRight.getPage().getPageNum()));
+    }
+
+
     // See BPlusNode.put.
     @Override
     public Optional<Pair<DataBox, Long>> put(DataBox key, RecordId rid) {
@@ -151,24 +174,7 @@ class InnerNode extends BPlusNode {
         }
 
         // 处理自身溢出，分裂当前节点
-        int order = metadata.getOrder();
-        DataBox midKey = keys.get(order);  // 中间键，将上升到父节点
-
-        // 分裂出右边节点，包含右半部分的 keys 和 children
-        List<DataBox> rightKeys = new ArrayList<>(keys.subList(order + 1, keys.size()));
-        List<Long> rightChildren = new ArrayList<>(children.subList(order + 1, children.size()));
-
-        // 删除左边节点的冗余部分，保留左半部分的 keys 和 children
-        keys.subList(order, keys.size()).clear();
-        children.subList(order + 1, children.size()).clear();
-        sync();  // 同步左边节点
-
-        // 新建右边节点
-        InnerNode newRight = new InnerNode(metadata, bufferManager, rightKeys, rightChildren, treeContext);
-        newRight.sync();  // 同步右边节点
-
-        // 返回分裂时上升的键和右边节点的页面号
-        return Optional.of(new Pair<>(midKey, newRight.getPage().getPageNum()));
+        return splitInner(id);
     }
 
 
@@ -177,6 +183,25 @@ class InnerNode extends BPlusNode {
     public Optional<Pair<DataBox, Long>> bulkLoad(Iterator<Pair<DataBox, RecordId>> data,
                                                   float fillFactor) {
         // TODO(proj2): implement
+        if (!data.hasNext()) {
+            return Optional.empty();
+        }
+        Pair<DataBox, RecordId> p = data.next();
+        DataBox key = p.getFirst();
+        RecordId rid = p.getSecond();
+
+        Long rightMostChild = children.get(children.size() - 1);
+        BPlusNode rightMost = BPlusNode.fromBytes(metadata, bufferManager, treeContext, rightMostChild);
+        Optional<Pair<DataBox, Long>> res = rightMost.bulkLoad(data, fillFactor);
+        if (res.isPresent()) {
+            keys.add(key);
+            children.add(res.get().getSecond());
+            sync();
+        }
+
+        if (keys.size() > 2 * metadata.getOrder()) {
+            return splitInner(findInsertId(key));
+        }
 
         return Optional.empty();
     }
