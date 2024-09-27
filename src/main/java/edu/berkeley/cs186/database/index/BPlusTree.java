@@ -490,7 +490,19 @@ public class BPlusTree {
             if (curId < currentNode.getRids().size()) {
                 return true;
             }
-            return !currentNode.getRightSibling().equals(Optional.empty());
+
+            if (currentNode.getRightSibling().equals(Optional.empty())) {
+                return false;
+            }
+            LeafNode right = currentNode.getRightSibling().get();
+            while (right.getRids().isEmpty()) {
+                if (right.getRightSibling().equals(Optional.empty())) {
+                    return false;
+                }
+                right = right.getRightSibling().get();
+            }
+            return true;
+
         }
 
         @Override

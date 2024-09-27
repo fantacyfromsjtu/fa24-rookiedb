@@ -136,7 +136,7 @@ public class TestBPlusTree {
         }
 
         tree.bulkLoad(data.iterator(), fillFactor);
-        tree.toDotPDFFile("test.pdf");
+        //tree.toDotPDFFile("test.pdf");
         //      (    4        7         10        _   )
         //       /       |         |         \
         // (1 2 3 _) (4 5 6 _) (7 8 9 _) (10 11 _ _)
@@ -487,4 +487,29 @@ public class TestBPlusTree {
         assertEquals(3, InnerNode.maxOrder(pageSizeInBytes, keySchema));
         assertEquals(3, BPlusTree.maxOrder(pageSizeInBytes, keySchema));
     }
+    @Test
+    public void testEverythingDeleted() {
+        // 创建一个B+树，order为2
+        BPlusTree tree = getBPlusTree(Type.intType(), 2);
+
+        // 插入一些元素
+        for (int i = 0; i < 10; i++) {
+            tree.put(new IntDataBox(i), new RecordId(i, (short) i));
+        }
+
+        // 确保树中已经插入了10个元素
+        Iterator<RecordId> iteratorBeforeDelete = tree.scanAll();
+        assertTrue(iteratorBeforeDelete.hasNext());
+
+        // 删除所有元素
+        for (int i = 0; i < 10; i++) {
+            tree.remove(new IntDataBox(i));
+        }
+
+        // 确保删除之后再创建的迭代器立即返回false
+        Iterator<RecordId> iteratorAfterDelete = tree.scanAll();
+        assertFalse(iteratorAfterDelete.hasNext());
+
+    }
+
 }
