@@ -186,21 +186,19 @@ class InnerNode extends BPlusNode {
         if (!data.hasNext()) {
             return Optional.empty();
         }
-        Pair<DataBox, RecordId> p = data.next();
-        DataBox key = p.getFirst();
-        RecordId rid = p.getSecond();
 
         Long rightMostChild = children.get(children.size() - 1);
         BPlusNode rightMost = BPlusNode.fromBytes(metadata, bufferManager, treeContext, rightMostChild);
         Optional<Pair<DataBox, Long>> res = rightMost.bulkLoad(data, fillFactor);
         if (res.isPresent()) {
-            keys.add(key);
+            keys.add(res.get().getFirst());
             children.add(res.get().getSecond());
             sync();
         }
 
         if (keys.size() > 2 * metadata.getOrder()) {
-            return splitInner(findInsertId(key));
+            int splitId = metadata.getOrder();
+            return splitInner(splitId);
         }
 
         return Optional.empty();
