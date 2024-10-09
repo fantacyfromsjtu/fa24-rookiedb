@@ -91,12 +91,12 @@ public class BNLJOperator extends JoinOperator {
             if (!this.leftSourceIterator.hasNext()) {
                 return;
             }
-            this.leftBlockIterator = getBlockIterator(leftSourceIterator, getSchema(), numBuffers - 2);
+            this.leftBlockIterator = getBlockIterator(leftSourceIterator, getLeftSource().getSchema(), numBuffers - 2);
             this.leftBlockIterator.markNext();
 
-            if (this.leftBlockIterator.hasNext()) {  // if there are records in this block
-                this.leftRecord = this.leftBlockIterator.next();
-            }
+
+            this.leftRecord = this.leftBlockIterator.next();
+
         }
 
         /**
@@ -115,7 +115,7 @@ public class BNLJOperator extends JoinOperator {
             if (!this.rightSourceIterator.hasNext()) {
                 return;
             }
-            this.rightPageIterator = getBlockIterator(this.rightSourceIterator, getSchema(), 1);
+            this.rightPageIterator = getBlockIterator(this.rightSourceIterator, getRightSource().getSchema(), 1);
             this.rightPageIterator.markNext();
 //            if (this.rightPageIterator.hasNext()) {  // if there are records in this page
 //                this.nextRecord = this.rightPageIterator.next();
